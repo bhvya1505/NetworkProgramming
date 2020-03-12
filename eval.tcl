@@ -7,7 +7,7 @@ set val(ifq) Queue/DropTail/PriQueue ;# interface queue type
 set val(ll) LL ;# link layer type
 set val(ant) Antenna/OmniAntenna ;# antenna model
 set val(ifqlen) 50 ;# max packet in ifq
-set val(nn) 3;# number of mobilenodes
+set val(nn) 4;# number of mobilenodes
 set val(rp) DSDV ;# routing protocol
 
 set ns_ [new Simulator]
@@ -40,53 +40,67 @@ set node_($i) [$ns_ node]
 $node_($i) random-motion 0 ;
 }
 
+$node_(0) radius 100
+$node_(1) radius 100
+$node_(2) radius 100
+$node_(3) radius 100
+
 # Provide initial (X,Y, for now Z=0) co-ordinates for mobilenodes
 $node_(0) set X_ 30.0
-$node_(0) set Y_ 50.0
+$node_(0) set Y_ 1.0
 $node_(0) set Z_ 0.0
-$node_(1) set X_ 400.0
-$node_(1) set Y_ 450.0
+$node_(1) set X_ 30.0
+$node_(1) set Y_ 100.0
 $node_(1) set Z_ 0.0
-$node_(2) set X_ 200.0
-$node_(2) set Y_ 250.0
+$node_(2) set X_ 100.0
+$node_(2) set Y_ 50.0
 $node_(2) set Z_ 0.0
+$node_(3) set X_ 250.0
+$node_(3) set Y_ 50.0
+$node_(3) set Z_ 0.0
 # Now produce some simple node movements
-$ns_ at 0.0 "$node_(0) setdest 30.0 50.0 20.0"
-$ns_ at 0.0 "$node_(1) setdest 400.0 450.0 80.0"
-$ns_ at 0.0 "$node_(2) setdest 200.0 250.0 1.0"
+$ns_ at 0.0 "$node_(0) setdest 30.0 1.0 0.0"
+$ns_ at 0.0 "$node_(1) setdest 30.0 100.0 0.0"
+$ns_ at 0.0 "$node_(2) setdest 200.0 90.0 1.0"
+$ns_ at 0.0 "$node_(3) setdest 250.0 50.0 0.0"
 
-$ns_ at 0.5 "$node_(0) setdest 190.0 210.0 100.0"
-$ns_ at 0.5 "$node_(1) setdest 220.0 280.0 100.0"
+$ns_ at 0.5 "$node_(2) setdest 40.0 20.0 0.0"
+$ns_ at 2.5 "$node_(2) setdest 40.0 80.0 100.0"
+$ns_ at 6.0 "$node_(2) setdest 40.0 20.0 0.0"
 
-$ns_ at 55.5 "$node_(0) setdest 30.0 50.0 100.0"
-$ns_ at 55.5 "$node_(1) setdest 400.0 450.0 100.0"
+#$ns_ duplex-link $node_(0) $node_(2) 1Mb 10ms DropTail
+#$ns_ duplex-link $node_(1) $node_(2) 1Mb 10ms DropTail
+#$ns_ duplex-link $node_(2) $node_(3) 1Mb 10ms DropTail
 
 set tcp [new Agent/TCP]
 $tcp set class_ 2
 set sink [new Agent/TCPSink]
 $ns_ attach-agent $node_(0) $tcp
-$ns_ attach-agent $node_(2) $sink
+$ns_ attach-agent $node_(3) $sink
 $ns_ connect $tcp $sink
 set ftp [new Application/FTP]
 $ftp attach-agent $tcp
 
-set tcp2 [new Agent/TCP]
-$tcp2 set class_ 2
-set sink2 [new Agent/TCPSink]
-$ns_ attach-agent $node_(1) $tcp2
-$ns_ attach-agent $node_(2) $sink2
-$ns_ connect $tcp2 $sink2
-set ftp2 [new Application/FTP]
-$ftp2 attach-agent $tcp2
+set udp [new Agent/UDP]
+$ns_ attach-agent $node_(1) $udp
+set null [new Agent/Null]
+$ns_ attach-agent $node_(3) $null
+$ns_ connect $udp $null
+set cbr [new Application/Traffic/CBR]
+$cbr attach-agent $udp
+$cbr set type_ CBR
+$cbr set packet_size_ 1000
+$cbr set rate_ 1mb
+$cbr set random_ false
 
-$ns_ at 2.0 "$ftp start"
-$ns_ at 2.0 "$ftp2 start"
+$ns_ at 0.1 "$ftp start"
+$ns_ at 0.8 "$cbr start"
 
 for {set i 0} {$i < $val(nn) } {incr i} {
-$ns_ at 150.0 "$node_($i) reset";
+$ns_ at 10.0 "$node_($i) reset";
 }
-$ns_ at 150.0 "stop"
-$ns_ at 150.01 "puts \"NS EXITING...\" ; $ns_ halt"
+$ns_ at 10.0 "stop"
+$ns_ at 10.01 "puts \"NS EXITING...\" ; $ns_ halt"
 proc stop {} {
 global ns_ tracefd
 $ns_ flush-trace
